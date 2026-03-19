@@ -10,3 +10,15 @@ Readme
 .ipynb_checkpoints
 POS*
 
+# Build / packaging
+*.egg-info/
+dist/
+build/
+
+# Example output files
+*.lammps
+*.xyz
+
+# Claude Code
+.claude/
+
