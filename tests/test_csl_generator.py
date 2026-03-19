@@ -67,11 +67,10 @@ class TestRotationMatrix:
 class TestBasis:
     """Tests for Basis function."""
 
-    def test_sc_basis(self):
+    def test_sc_single_atom(self):
         b = cslgen.Basis('sc')
-        # SC basis returns np.eye(3) in the current implementation
-        assert b.shape == (3, 3)
-        np.testing.assert_array_equal(b, np.eye(3))
+        assert b.shape == (1, 3)
+        np.testing.assert_array_equal(b, [[0, 0, 0]])
 
     def test_fcc_four_atoms(self):
         b = cslgen.Basis('fcc')

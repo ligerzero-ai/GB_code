@@ -402,7 +402,7 @@ def Basis(basis):
         basis = np.array([[0, 0, 0],
                           [0.5, 0.5, 0.5]], dtype=float)
     elif str(basis) == 'sc':
-        basis = np.eye(3)
+        basis = np.array([[0, 0, 0]], dtype=float)
 
     elif str(basis) == 'diamond':
         basis = np.array([[0, 0, 0],
