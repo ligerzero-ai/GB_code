@@ -1,5 +1,5 @@
 40
-Lattice="25.614449047363873 0.0 0.0 0.0 4.05 0.0 0.0 0.0 6.403612261840968" Properties=species:S:1:pos:R:3:tags:I:1:grain_id:I:1 gb_plane_x=12.807224523681937 sigma=5 axis="_JSON [1, 0, 0]" gbplane="_JSON [0, 3, 1]" pbc="T T T"
+Lattice="25.614449047363873 0.0 0.0 0.0 4.05 0.0 0.0 0.0 6.403612261840968" Properties=species:S:1:pos:R:3:tags:I:1:grain_id:I:1 gb_plane_x=12.807224523681937 gb_normal=x sigma=5 axis="_JSON [1, 0, 0]" gbplane="_JSON [0, 3, 1]" pbc="T T T"
 Al      13.44758575       2.02500000       4.48252858        1        1
 Al      14.08794698       0.00000000       2.56144490        1        1
 Al      15.36866943       0.00000000       5.12288981        1        1
