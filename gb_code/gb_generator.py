@@ -26,6 +26,7 @@ Usage:
 """
 
 import sys
+import math
 import numpy as np
 from numpy import dot, cross
 from numpy.linalg import det, norm
@@ -76,6 +77,8 @@ class GB_character:
         self.File = 'LAMMPS'
         self.gb_plane_x = 0.0  # GB plane location in x (lattice units)
         self._built = False
+        self._gb_normal = 'x'
+        self._min_inplane_dist = None
 
     def ParseGB(self, axis, basis, LatP, m, n, gb):
         """
@@ -247,10 +250,39 @@ class GB_character:
         return (X_del, Y_del, IndX[indice_x], IndY_new[indice_y])
 
     # ------------------------------------------------------------------ #
+    #  Axis permutation helpers                                            #
+    # ------------------------------------------------------------------ #
+
+    @property
+    def _normal_axis_index(self):
+        """Index of the GB-normal axis in the output frame (0=x, 1=y, 2=z)."""
+        return {'x': 0, 'y': 1, 'z': 2}[self._gb_normal]
+
+    def _permutation_matrix(self):
+        """Return a 3x3 matrix that maps internal axes to the output frame.
+
+        Internally the GB normal is always along x (axis 0).
+        This matrix rotates it to whichever axis ``_gb_normal`` specifies.
+        """
+        if self._gb_normal == 'x':
+            return np.eye(3)
+        elif self._gb_normal == 'y':
+            # internal x->output y, y->z, z->x
+            return np.array([[0, 0, 1],
+                             [1, 0, 0],
+                             [0, 1, 0]], dtype=float)
+        else:  # 'z'
+            # internal x->output z, y->x, z->y
+            return np.array([[0, 1, 0],
+                             [0, 0, 1],
+                             [1, 0, 0]], dtype=float)
+
+    # ------------------------------------------------------------------ #
     #  New unified build / export API                                      #
     # ------------------------------------------------------------------ #
 
-    def build(self, overlap=0.0, whichG='g1', dim=None):
+    def build(self, overlap=0.0, whichG='g1', dim=None,
+              min_inplane_dist=None, gb_normal='x'):
         """
         Build the bicrystal supercell (without translations or file I/O).
 
@@ -263,6 +295,15 @@ class GB_character:
             Which grain to remove overlapping atoms from ('g1' or 'g2').
         dim : list of int, optional
             Supercell dimensions [dimX, dimY, dimZ]. Default [1,1,1].
+            dimX is along the GB normal; dimY and dimZ are in-plane.
+        min_inplane_dist : float, optional
+            Minimum in-plane cell length in Angstroms. When set, dimY and
+            dimZ are increased (if needed) so that both in-plane directions
+            are at least this long. dimX is not affected.
+        gb_normal : str, optional
+            Cartesian axis for the GB plane normal in the exported
+            structure: 'x' (default), 'y', or 'z'. The internal build
+            always uses x; the permutation is applied at export time.
 
         After calling this, use to_pymatgen(), to_ase(), write_lammps(),
         or write_vasp() to get the structure.
@@ -272,6 +313,18 @@ class GB_character:
         self.dim = np.array(dim, dtype=int)
         self.overD = float(overlap)
         self.whichG = whichG
+
+        if gb_normal not in ('x', 'y', 'z'):
+            raise ValueError("gb_normal must be 'x', 'y', or 'z'")
+        self._gb_normal = gb_normal
+
+        if min_inplane_dist is not None:
+            min_d = float(min_inplane_dist)
+            self._min_inplane_dist = min_d
+            base_y = norm(self.ortho1[:, 1]) * self.LatP
+            base_z = norm(self.ortho1[:, 2]) * self.LatP
+            self.dim[1] = max(self.dim[1], math.ceil(min_d / base_y))
+            self.dim[2] = max(self.dim[2], math.ceil(min_d / base_z))
 
         self.Expand_Super_cell()
 
@@ -293,18 +346,25 @@ class GB_character:
         return self
 
     def _get_cell_vectors(self):
-        """Return the three cell vectors in Cartesian coords (Angstroms)."""
+        """Return the three cell vectors in Cartesian coords (Angstroms).
+
+        The cell is permuted according to ``_gb_normal`` so that the GB
+        plane normal aligns with the requested Cartesian axis.
+        """
         dimx, dimy, dimz = self.dim
         Lx = 2 * norm(self.ortho1[:, 0]) * dimx * self.LatP
         Ly = norm(self.ortho1[:, 1]) * dimy * self.LatP
         Lz = norm(self.ortho1[:, 2]) * dimz * self.LatP
-        return np.diag([Lx, Ly, Lz])
+        cell = np.diag([Lx, Ly, Lz])
+        P = self._permutation_matrix()
+        return P @ cell @ P.T
 
     def _get_cartesian_positions_and_grains(self):
         """
         Return (positions, grain_ids) in Angstroms.
 
-        positions : (N, 3) array of Cartesian coordinates
+        positions : (N, 3) array of Cartesian coordinates (permuted to
+                    match ``_gb_normal``)
         grain_ids : (N,) array of integers (1 for grain 1, 2 for grain 2)
         """
         if not self._built:
@@ -320,6 +380,8 @@ class GB_character:
             np.ones(len(X), dtype=int),
             2 * np.ones(len(Y), dtype=int)
         ])
+        P = self._permutation_matrix()
+        positions = positions @ P.T
         return positions, grain_ids
 
     def get_grain_info(self):
@@ -328,22 +390,27 @@ class GB_character:
 
         Keys
         ----
-        gb_plane_x_angstrom : float
-            x-coordinate of the GB plane in Angstroms (always 0.0 in
-            the generated coordinate frame).
-        periodic_image_x_angstrom : float
-            x-coordinate of the periodic image of the GB.
+        gb_normal : str
+            The Cartesian axis along the GB plane normal ('x', 'y', or 'z').
+        gb_plane_{axis}_angstrom : float
+            Coordinate of the GB plane along the normal axis (Angstroms).
+        periodic_image_{axis}_angstrom : float
+            Coordinate of the periodic image of the GB.
         n_grain1, n_grain2 : int
             Number of atoms in each grain.
         cell : (3,3) array
-            Cell vectors in Angstroms.
+            Cell vectors in Angstroms (permuted to match gb_normal).
         """
         if not self._built:
             raise RuntimeError("Call build() first.")
         cell = self._get_cell_vectors()
+        ax = self._normal_axis_index
+        L_normal = cell[ax, ax]
+        normal = self._gb_normal
         return {
-            'gb_plane_x_angstrom': 0.0,
-            'periodic_image_x_angstrom': cell[0, 0] / 2.0,
+            'gb_normal': normal,
+            'gb_plane_{}_angstrom'.format(normal): L_normal / 2.0,
+            'periodic_image_{}_angstrom'.format(normal): L_normal,
             'n_grain1': len(self.atoms1),
             'n_grain2': len(self.atoms2),
             'cell': cell,
@@ -388,9 +455,10 @@ class GB_character:
             species = [element] * len(grain_ids)
 
         # Shift positions so they sit inside the cell [0, L)
-        # Grain 2 has negative x; shift by +Lx/2 so GB is at Lx/2
-        Lx = cell[0, 0]
-        positions[:, 0] += Lx / 2.0
+        # Grain 2 has negative coords along the normal; shift by +L/2
+        ax = self._normal_axis_index
+        L_normal = cell[ax, ax]
+        positions[:, ax] += L_normal / 2.0
 
         struct = Structure(
             lattice,
@@ -437,8 +505,9 @@ class GB_character:
             symbols = [element] * len(grain_ids)
 
         # Shift so everything is inside the cell
-        Lx = cell[0, 0]
-        positions[:, 0] += Lx / 2.0
+        ax = self._normal_axis_index
+        L_normal = cell[ax, ax]
+        positions[:, ax] += L_normal / 2.0
 
         atoms = ASEAtoms(
             symbols=symbols,
@@ -448,7 +517,8 @@ class GB_character:
         )
         atoms.set_tags(grain_ids)
         atoms.arrays['grain_id'] = grain_ids
-        atoms.info['gb_plane_x'] = Lx / 2.0
+        atoms.info['gb_plane_{}'.format(self._gb_normal)] = L_normal / 2.0
+        atoms.info['gb_normal'] = self._gb_normal
         atoms.info['sigma'] = self.sigma
         atoms.info['axis'] = self.axis.tolist()
         atoms.info['gbplane'] = self.gbplane.tolist()

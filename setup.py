@@ -13,6 +13,7 @@ EXTRAS_REQUIRE = {
     'pymatgen': ['pymatgen'],
     'ase': ['ase'],
     'all': ['pymatgen', 'ase'],
+    'test': ['pytest', 'pymatgen', 'ase'],
 }
 
 setup(
