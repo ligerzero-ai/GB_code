@@ -17,11 +17,12 @@ EXTRAS_REQUIRE = {
 }
 
 setup(
-    name='GB_code',
-    python_requires='>3.5.1',
-    version='2.0.0',
+    name='lz_GB_code',
+    python_requires='>=3.9',
+    version='0.1.0',
     author='R.Hadian',
     author_email='shahrzadhadian@gmail.com',
+    maintainer='ligerzero-ai',
     packages=packages,
     install_requires=INSTALL_REQUIRES,
     extras_require=EXTRAS_REQUIRE,
@@ -32,8 +33,15 @@ setup(
             'inplane_shift = gb_code.inplane_shift:main',
         ],
     },
-    url='https://github.com/oekosheri/GB_code',
-    license='LICENSE',
-    description='A GB generation code with pymatgen/ASE output support',
+    url='https://github.com/ligerzero-ai/GB_code',
+    license='MIT',
+    description='Grain boundary generation code with pymatgen/ASE output support (fork of GB_code)',
     long_description=open('README.md').read(),
+    long_description_content_type='text/markdown',
+    classifiers=[
+        'Programming Language :: Python :: 3',
+        'License :: OSI Approved :: MIT License',
+        'Topic :: Scientific/Engineering :: Chemistry',
+        'Topic :: Scientific/Engineering :: Physics',
+    ],
 )
