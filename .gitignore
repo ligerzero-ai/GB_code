@@ -2,7 +2,11 @@
 
 .idea
 input*
-__pycache__
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
 .vscode
 log.file
 io_file
