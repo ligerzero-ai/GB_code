@@ -1,0 +1,4 @@
+[console_scripts]
+csl_generator = gb_code.csl_generator:main
+gb_generator = gb_code.gb_generator:main
+inplane_shift = gb_code.inplane_shift:main

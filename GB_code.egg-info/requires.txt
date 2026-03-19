@@ -1,0 +1,12 @@
+numpy>=1.14.0
+pyyaml
+
+[all]
+pymatgen
+ase
+
+[ase]
+ase
+
+[pymatgen]
+pymatgen
